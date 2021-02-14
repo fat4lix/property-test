@@ -1,33 +1,37 @@
 <template>
     <div class="container">
-        <el-form label-width="120px" inline>
-            <el-form-item label="Name">
-                <el-input v-model="form.name"></el-input>
+        <el-form label-width="120px" inline @submit="doSearch">
+            <el-form-item label="Name" class="form-item">
+                <el-input v-model="filters.name" clearable></el-input>
             </el-form-item>
-            <el-form-item label="Bedrooms">
-                <el-input v-model="form.bedrooms"></el-input>
+            <el-form-item label="Bedrooms" :error="getError('bedrooms')">
+                <el-input v-model="filters.bedrooms" clearable></el-input>
             </el-form-item>
-            <el-form-item label="Bathrooms">
-                <el-input v-model="form.bathrooms"></el-input>
+            <el-form-item label="Bathrooms" :error="getError('bathrooms')">
+                <el-input v-model="filters.bathrooms" clearable></el-input>
             </el-form-item>
-            <el-form-item label="Storeys">
-                <el-input v-model="form.storeys"></el-input>
+            <el-form-item label="Storeys" :error="getError('storeys')">
+                <el-input v-model="filters.storeys" clearable></el-input>
             </el-form-item>
-            <el-form-item label="Garages">
-                <el-input v-model="form.garages"></el-input>
+            <el-form-item label="Garages" :error="getError('garages')">
+                <el-input v-model="filters.garages" clearable></el-input>
             </el-form-item>
-             <el-form-item label="Price from">
-                <el-input v-model="form.price_from"></el-input>
+            <el-form-item label="Price from" :error="getError('price_from')">
+                <el-input v-model="filters.price_from" clearable></el-input>
             </el-form-item>
-             <el-form-item label="Price to">
-                <el-input v-model="form.price_to"></el-input>
+            <el-form-item label="Price to" :error="getError('price_to')">
+                <el-input v-model="filters.price_to" clearable></el-input>
             </el-form-item>
             <el-form-item>
-                <el-button class="search-btn" type="primary" @click="doSearch">Search</el-button>
+                <el-button class="search-btn" type="primary" @click="doSearch" :loading="loading">Search</el-button>
+            </el-form-item>
+            <el-form-item>
+                <el-button type="primary" @click="resetFilters" :loading="loading">Reset filters</el-button>
             </el-form-item>
         </el-form>
 
         <el-table
+            v-loading="loading"
             :data="tableData"
             style="width: 100%">
             <el-table-column
@@ -61,62 +65,83 @@
             </el-table-column>
         </el-table>
     </div>
-   
+
 
 </template>
 
 
 <script>
-    import { defineComponent, reactive, ref } from "vue";
-    import axios from "axios";
+import {defineComponent, reactive, ref} from "vue";
+import pickBy from 'lodash/pickBy';
+import axios from "axios";
+import {useFormErrors} from "./formErrors";
 
-    export default defineComponent({
-        name: 'App',
-        setup() {
-            const tableData = ref([{
-            price: '123412',
-            name: 'Tom',
-            bedrooms: '1',
-            bathrooms: '1',
-            storeys: '1',
-            garages: '1',
-          }])
+export default defineComponent({
+    name: 'App',
+    setup() {
+        const loading = ref(false);
+        const tableData = ref([])
 
-          const doSearch = async () => {
 
-              try {
-                  const data = await axios.get('/api/houses/search');
+        const initialFilters = {
+            name: '',
+            bedrooms: '',
+            bathrooms: '',
+            storeys: '',
+            garages: '',
+            price_from: '',
+            price_to: '',
+        }
 
-                  console.log(data);
-              } catch (error) {
-                  
-              }
-             
-          }
-            const form = reactive({
-                name: '',
-                bedrooms: '',
-                bathrooms: '',
-                storeys:'',
-                garages: '', 
-                price_from: '',
-                price_to: '',
-            })
-            return {
-                form,
-                tableData,
-                doSearch
+        const filters = reactive({...initialFilters})
+
+        const { getError, setErrors, clearErrors } = useFormErrors()
+
+        const resetFilters = async () => {
+            Object.assign(filters, initialFilters)
+            await doSearch();
+        }
+
+        const doSearch = async () => {
+            clearErrors();
+            loading.value = true
+            try {
+                const {data} = await axios.get('/api/houses/search', {
+                    params: pickBy(filters, (p) => p !== null && p.length > 0 )
+                });
+                tableData.value = data.data
+            } catch (error) {
+                if('errors' in error.response.data) {
+                    setErrors(error.response.data.errors)
+                }
+                console.log(getError('bedrooms'))
+            } finally {
+                loading.value = false
             }
         }
-    })
+
+        return {
+            filters,
+            tableData,
+            doSearch,
+            resetFilters,
+            loading,
+            getError,
+        }
+    }
+})
 </script>
 
 
 <style scoped>
-    .container {
-        margin: 30px;
-    }
-    .search-btn {
-        margin-left:  40px;
-    }
+.form-item {
+    margin-bottom: 35px;
+}
+.container {
+    margin: 30px;
+}
+
+.search-btn {
+    margin-left: 40px;
+}
 </style>
